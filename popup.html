@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Daily Feji Helper</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Daily Feji Helper</h1>
+        <span id="statusBadge">Idle</span>
+      </header>
+
+      <label for="jsonInput">JSON bai viet</label>
+      <textarea id="jsonInput" spellcheck="false" placeholder='[
+  {
+    "title": "Title 1",
+    "description": "<p>Noi dung...</p>",
+    "image": "https://example.com/image.webp",
+    "descriptionImage": "https://example.com/inside.webp"
+  }
+]'></textarea>
+
+      <label for="imagePlacement">Cach chen anh vao description</label>
+      <select id="imagePlacement">
+        <option value="random" selected>Ngau nhien giua bai</option>
+        <option value="top">Dau bai</option>
+        <option value="none">Khong chen</option>
+      </select>
+
+      <section class="rule">
+        <div>Domain theo phut: 00-14 headlinebriefs, 15-29 greendailys, 30-44 greenwnbas, 45-59 wnbatime.</div>
+      </section>
+
+      <div class="actions">
+        <button id="startBtn" type="button">Start batch</button>
+        <button id="stopBtn" type="button" class="secondary">Stop</button>
+      </div>
+
+      <div id="progress"></div>
+
+      <label for="results">Ket qua</label>
+      <textarea id="results" readonly spellcheck="false"></textarea>
+
+      <div class="actions">
+        <button id="copyJsonBtn" type="button" class="secondary">Copy JSON</button>
+        <button id="copyCsvBtn" type="button" class="secondary">Copy CSV</button>
+        <button id="clearBtn" type="button" class="ghost">Clear</button>
+      </div>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

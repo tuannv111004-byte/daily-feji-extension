@@ -1,0 +1,110 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 420px;
+  max-width: 420px;
+  color: #1f2937;
+  background: #f7f8fa;
+  font: 13px/1.4 Arial, sans-serif;
+}
+
+main {
+  padding: 14px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+#statusBadge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  font-size: 12px;
+}
+
+label {
+  display: block;
+  margin: 10px 0 6px;
+  font-weight: 700;
+}
+
+textarea,
+select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 9px;
+  background: #fff;
+  color: #111827;
+}
+
+textarea {
+  min-height: 170px;
+  resize: vertical;
+  font: 12px/1.45 Consolas, "Courier New", monospace;
+}
+
+#results {
+  min-height: 120px;
+}
+
+.rule {
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #fff;
+  color: #475569;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button.secondary {
+  background: #475569;
+}
+
+button.ghost {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+#progress {
+  min-height: 34px;
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #312e81;
+  white-space: pre-wrap;
+}
