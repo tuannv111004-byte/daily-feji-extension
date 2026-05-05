@@ -259,7 +259,7 @@ async function dailyCreatePostScript(item, options) {
     setValue('input[wire\\:model\\.defer="image"], input.image-url', item.image || "");
     if (!setValue("#title", item.title)) throw new Error("Không tìm thấy field title Daily");
     setValue("#slug", "");
-    setValue("#seo_title", "LASKDJKJLAKSJDLASKDJSALKDSDSA");
+    setValue("#seo_title", item.title);
     setValue("#seo_description", "");
 
     const textarea = document.querySelector("#description-editor");
