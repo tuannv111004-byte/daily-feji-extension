@@ -78,6 +78,20 @@ async function runBatch(payload) {
 
       row.shortLink = await createFejiLink(item, row.dailyLink, row.domain);
       row.status = "done";
+
+      if (payload.scheduler?.enabled) {
+        await setState({
+          status: "running",
+          message: `[${i + 1}/${items.length}] Gui sang FB Scheduler: ${item.title}`,
+          results
+        });
+        const schedulerResult = await sendToScheduler(row, payload.scheduler);
+        const createdPost = schedulerResult?.posts?.[0];
+        row.schedulerStatus = "sent";
+        row.schedulerPostId = createdPost?.id || "";
+        row.schedulerDate = createdPost?.post_date || "";
+        row.schedulerTimeSlot = createdPost?.time_slot || "";
+      }
     } catch (error) {
       row.status = "error";
       row.error = error.message;
@@ -101,6 +115,50 @@ async function runBatch(payload) {
 async function setState(patch) {
   const current = (await chrome.storage.local.get(STATE_KEY))[STATE_KEY] || {};
   await chrome.storage.local.set({ [STATE_KEY]: { ...current, ...patch } });
+}
+
+async function sendToScheduler(row, scheduler) {
+  const schedulerUrl = String(scheduler.schedulerUrl || "").replace(/\/+$/, "");
+  const token = String(scheduler.token || "");
+  const pageId = String(scheduler.pageId || "");
+  const startDate = String(scheduler.startDate || "");
+  const startTimeSlot = String(scheduler.startTimeSlot || "");
+  const status = String(scheduler.status || "draft");
+
+  if (!schedulerUrl) throw new Error("Thieu Scheduler URL");
+  if (!token) throw new Error("Thieu Scheduler import token");
+  if (!pageId) throw new Error("Thieu Scheduler pageId");
+  if (!startDate) throw new Error("Thieu Scheduler startDate");
+  if (!startTimeSlot) throw new Error("Thieu Scheduler startTimeSlot");
+
+  const response = await fetch(`${schedulerUrl}/api/extension/daily-results`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      pageId,
+      startDate,
+      startTimeSlot,
+      status,
+      items: [row]
+    })
+  });
+
+  const responseText = await response.text();
+  let result = null;
+  try {
+    result = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    // Keep raw text for the error below.
+  }
+
+  if (!response.ok) {
+    throw new Error(result?.error || responseText || `Scheduler API error ${response.status}`);
+  }
+
+  return result;
 }
 
 function domainForNow(date = new Date()) {

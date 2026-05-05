@@ -15,7 +15,14 @@ Chrome extension ho tro tao Daily post, tao Feji short link, va xuat ket qua.
 2. Mo popup extension.
 3. Nhap tung bai hoac import JSON.
 4. Chon cach chen anh vao description.
-5. Bam `Start batch`.
+5. Neu muon day ket qua vao FB Scheduler, bat `Tu dong gui ket qua done sang FB Scheduler`.
+6. Dien:
+   - Scheduler URL: URL app FB Scheduler, vi du `https://your-app.vercel.app`
+   - Import token: trung voi `EXTENSION_IMPORT_TOKEN` trong app
+   - Page ID: Supabase `pages.id` cua page can tao post
+   - Start date va Start time slot
+   - Post status
+7. Bam `Start batch`.
 
 JSON ho tro:
 
@@ -29,3 +36,29 @@ JSON ho tro:
   }
 ]
 ```
+
+## FB Scheduler API
+
+App FB Scheduler can co env:
+
+```env
+EXTENSION_IMPORT_TOKEN=your-secret-token
+```
+
+Extension se goi:
+
+```text
+POST /api/extension/daily-results
+```
+
+Mapping khi gui sang FB Scheduler:
+
+- `title` -> tieu de Daily/Feji va notes
+- post caption -> giu nguyen tren post co san
+- post image -> giu nguyen tren post co san
+- `shortLink` -> thay the adsLink cua post co san
+- `dailyLink` va `domain` -> notes
+
+API se tim cac post cua page tu `Start date` + `Start time slot` tro di. Neu slot bat dau
+khong co post thi lay post gan nhat tiep theo. Neu post da co adsLink thi van thay the bang
+shortLink moi. Extension khong tao post moi.

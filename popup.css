@@ -41,7 +41,8 @@ label {
 }
 
 textarea,
-select {
+select,
+input {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -67,6 +68,37 @@ textarea {
   border-radius: 6px;
   background: #fff;
   color: #475569;
+}
+
+.scheduler {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.section-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-weight: 400;
+}
+
+.check-row input {
+  width: auto;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .actions {

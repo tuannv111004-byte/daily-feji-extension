@@ -34,6 +34,46 @@
         <div>Domain theo phut: 00-14 headlinebriefs, 15-29 greendailys, 30-44 greenwnbas, 45-59 wnbatime.</div>
       </section>
 
+      <section class="scheduler">
+        <div class="section-title">FB Scheduler API</div>
+        <label class="check-row">
+          <input id="schedulerEnabled" type="checkbox">
+          <span>Tu dong gui ket qua done sang FB Scheduler</span>
+        </label>
+
+        <label for="schedulerUrl">Scheduler URL</label>
+        <input id="schedulerUrl" type="url" placeholder="https://your-app.vercel.app">
+
+        <label for="schedulerToken">Import token</label>
+        <input id="schedulerToken" type="password" placeholder="EXTENSION_IMPORT_TOKEN">
+
+        <div class="grid-2">
+          <div>
+            <label for="schedulerPageId">Page ID</label>
+            <input id="schedulerPageId" type="text" placeholder="Supabase page uuid">
+          </div>
+          <div>
+            <label for="schedulerStatus">Post status</label>
+            <select id="schedulerStatus">
+              <option value="draft" selected>draft</option>
+              <option value="scheduled">scheduled</option>
+              <option value="ready">ready</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label for="schedulerStartDate">Start date</label>
+            <input id="schedulerStartDate" type="date">
+          </div>
+          <div>
+            <label for="schedulerStartTimeSlot">Start time slot</label>
+            <input id="schedulerStartTimeSlot" type="time">
+          </div>
+        </div>
+      </section>
+
       <div class="actions">
         <button id="startBtn" type="button">Start batch</button>
         <button id="stopBtn" type="button" class="secondary">Stop</button>
