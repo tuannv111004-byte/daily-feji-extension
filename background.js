@@ -79,19 +79,6 @@ async function runBatch(payload) {
       row.shortLink = await createFejiLink(item, row.dailyLink, row.domain);
       row.status = "done";
 
-      if (payload.scheduler?.enabled) {
-        await setState({
-          status: "running",
-          message: `[${i + 1}/${items.length}] Gui sang FB Scheduler: ${item.title}`,
-          results
-        });
-        const schedulerResult = await sendToScheduler(row, payload.scheduler);
-        const createdPost = schedulerResult?.posts?.[0];
-        row.schedulerStatus = "sent";
-        row.schedulerPostId = createdPost?.id || "";
-        row.schedulerDate = createdPost?.post_date || "";
-        row.schedulerTimeSlot = createdPost?.time_slot || "";
-      }
     } catch (error) {
       row.status = "error";
       row.error = error.message;
@@ -102,6 +89,41 @@ async function runBatch(payload) {
       message: `[${i + 1}/${items.length}] ${row.status}: ${item.title}`,
       results
     });
+  }
+
+  if (payload.scheduler?.enabled) {
+    const doneRows = results.filter((row) => row.status === "done");
+    if (doneRows.length > 0) {
+      try {
+        await setState({
+          status: "running",
+          message: `Gui ${doneRows.length} ket qua sang FB Scheduler...`,
+          results
+        });
+
+        const schedulerResult = await sendToScheduler(doneRows, payload.scheduler);
+        const updatedPosts = schedulerResult?.posts || [];
+
+        doneRows.forEach((row, index) => {
+          const updatedPost = updatedPosts[index];
+          row.schedulerStatus = "sent";
+          row.schedulerPostId = updatedPost?.id || "";
+          row.schedulerDate = updatedPost?.post_date || "";
+          row.schedulerTimeSlot = updatedPost?.time_slot || "";
+        });
+      } catch (error) {
+        doneRows.forEach((row) => {
+          row.schedulerStatus = "error";
+          row.schedulerError = error.message;
+        });
+      }
+
+      await setState({
+        status: stopRequested ? "stopping" : "running",
+        message: `Da gui Scheduler: ${doneRows.filter((row) => row.schedulerStatus === "sent").length}/${doneRows.length}`,
+        results
+      });
+    }
   }
 
   await setState({
@@ -117,7 +139,7 @@ async function setState(patch) {
   await chrome.storage.local.set({ [STATE_KEY]: { ...current, ...patch } });
 }
 
-async function sendToScheduler(row, scheduler) {
+async function sendToScheduler(rows, scheduler) {
   const schedulerUrl = String(scheduler.schedulerUrl || "").replace(/\/+$/, "");
   const token = String(scheduler.token || "");
   const pageId = String(scheduler.pageId || "");
@@ -142,7 +164,7 @@ async function sendToScheduler(row, scheduler) {
       startDate,
       startTimeSlot,
       status,
-      items: [row]
+      items: rows
     })
   });
 
