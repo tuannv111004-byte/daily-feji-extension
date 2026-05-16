@@ -52,6 +52,8 @@ async function runBatch(payload) {
     const row = {
       title: item.title,
       image: item.image || "",
+      caption: item.caption || "",
+      schedulerPostId: item.schedulerPostId || "",
       dailyLink: "",
       shortLink: "",
       domain: "",
@@ -110,6 +112,7 @@ async function runBatch(payload) {
           row.schedulerPostId = updatedPost?.id || "";
           row.schedulerDate = updatedPost?.post_date || "";
           row.schedulerTimeSlot = updatedPost?.time_slot || "";
+          row.schedulerCaption = updatedPost?.caption || "";
         });
       } catch (error) {
         doneRows.forEach((row) => {
@@ -419,10 +422,31 @@ function fejiFillAndSubmitScript(item, dailyLink, domain) {
     div.innerHTML = html || "";
     return div.textContent.trim().replace(/\s+/g, " ");
   };
+  const slugify = (value) => {
+    const maxLength = 60;
+    const slug = String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/^vt-+/, "");
+    const parts = slug.split("-").filter(Boolean);
+    let result = "";
+
+    for (const part of parts) {
+      const next = result ? `${result}-${part}` : part;
+      if (next.length > maxLength) break;
+      result = next;
+    }
+
+    return result || `link-${Date.now().toString(36)}`;
+  };
 
   try {
     setValue('input[name="title"]', item.title);
     setValue('input[name="link"]', dailyLink);
+    setValue('input[name="shorted_link__slug"]', slugify(item.title));
     setValue('input[name="shorted_link__image"]', item.image || "");
     setValue('input[name="shorted_link__title"]', item.title);
     setValue('input[name="shorted_link__description"]', stripHtml(item.description).slice(0, 240));

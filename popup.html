@@ -47,10 +47,17 @@
         <label for="schedulerToken">Import token</label>
         <input id="schedulerToken" type="password" placeholder="EXTENSION_IMPORT_TOKEN">
 
+        <div class="actions compact-actions">
+          <button id="loadSchedulerBtn" type="button" class="secondary">Load pages</button>
+          <span id="schedulerMetaStatus"></span>
+        </div>
+
         <div class="grid-2">
           <div>
-            <label for="schedulerPageId">Page ID</label>
-            <input id="schedulerPageId" type="text" placeholder="Supabase page uuid">
+            <label for="schedulerPageId">Page</label>
+            <select id="schedulerPageId">
+              <option value="">Load pages first</option>
+            </select>
           </div>
           <div>
             <label for="schedulerStatus">Post status</label>
@@ -69,7 +76,9 @@
           </div>
           <div>
             <label for="schedulerStartTimeSlot">Start time slot</label>
-            <input id="schedulerStartTimeSlot" type="time">
+            <select id="schedulerStartTimeSlot">
+              <option value="">Select page first</option>
+            </select>
           </div>
         </div>
       </section>

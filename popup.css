@@ -107,6 +107,19 @@ textarea {
   margin-top: 10px;
 }
 
+.compact-actions {
+  align-items: center;
+}
+
+.compact-actions button {
+  flex: 0 0 auto;
+}
+
+#schedulerMetaStatus {
+  color: #475569;
+  font-size: 12px;
+}
+
 button {
   border: 0;
   border-radius: 6px;
