@@ -2,6 +2,7 @@ const DAILY_URL = "https://dailychronicle.cfx.bz/backend/posts";
 const FEJI_CREATE_URL = "https://s.feji.io/app/links/create";
 const FEJI_LIST_URL = "https://s.feji.io/app/links?page=1";
 const STATE_KEY = "dailyFejiState";
+const SCHEDULER_CONFIG_KEY = "dailyFejiSchedulerConfig";
 const DOMAIN_RULE = [
   "headlinebriefs.com",
   "greendailys.com",
@@ -37,8 +38,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 async function runBatch(payload) {
   running = true;
   stopRequested = false;
+  const savedConfig = (await chrome.storage.local.get(SCHEDULER_CONFIG_KEY))[SCHEDULER_CONFIG_KEY] || {};
   const items = payload.items || [];
   const options = payload.options || {};
+  const scheduler = payload.scheduler || savedConfig;
   const results = [];
 
   await setState({ status: "running", message: `Chuẩn bị chạy ${items.length} bài...`, results });
@@ -52,9 +55,12 @@ async function runBatch(payload) {
     const row = {
       title: item.title,
       image: item.image || "",
+      caption: item.caption || "",
+      schedulerPostId: item.schedulerPostId || "",
       dailyLink: "",
       shortLink: "",
       domain: "",
+      cleanupImageUrls: [],
       status: "running",
       error: ""
     };
@@ -67,7 +73,9 @@ async function runBatch(payload) {
         results
       });
 
-      row.dailyLink = await createDailyPost(dailyTab.id, item, options);
+      const dailyResult = await createDailyPost(dailyTab.id, item, options);
+      row.dailyLink = dailyResult.dailyLink;
+      row.cleanupImageUrls = dailyResult.cleanupImageUrls;
       row.domain = domainForNow();
 
       await setState({
@@ -91,7 +99,7 @@ async function runBatch(payload) {
     });
   }
 
-  if (payload.scheduler?.enabled) {
+  if (scheduler?.enabled) {
     const doneRows = results.filter((row) => row.status === "done");
     if (doneRows.length > 0) {
       try {
@@ -101,15 +109,16 @@ async function runBatch(payload) {
           results
         });
 
-        const schedulerResult = await sendToScheduler(doneRows, payload.scheduler);
+        const schedulerResult = await sendToScheduler(doneRows, scheduler);
         const updatedPosts = schedulerResult?.posts || [];
 
         doneRows.forEach((row, index) => {
           const updatedPost = updatedPosts[index];
           row.schedulerStatus = "sent";
-          row.schedulerPostId = updatedPost?.id || "";
+          row.schedulerPostId = updatedPost?.id || row.schedulerPostId || "";
           row.schedulerDate = updatedPost?.post_date || "";
           row.schedulerTimeSlot = updatedPost?.time_slot || "";
+          row.schedulerCaption = updatedPost?.caption || "";
         });
       } catch (error) {
         doneRows.forEach((row) => {
@@ -146,12 +155,15 @@ async function sendToScheduler(rows, scheduler) {
   const startDate = String(scheduler.startDate || "");
   const startTimeSlot = String(scheduler.startTimeSlot || "");
   const status = String(scheduler.status || "draft");
+  const hasPostIds = rows.every((row) => String(row.schedulerPostId || "").trim());
 
   if (!schedulerUrl) throw new Error("Thieu Scheduler URL");
   if (!token) throw new Error("Thieu Scheduler import token");
-  if (!pageId) throw new Error("Thieu Scheduler pageId");
-  if (!startDate) throw new Error("Thieu Scheduler startDate");
-  if (!startTimeSlot) throw new Error("Thieu Scheduler startTimeSlot");
+  if (!hasPostIds) {
+    if (!pageId) throw new Error("Thieu Scheduler pageId");
+    if (!startDate) throw new Error("Thieu Scheduler startDate");
+    if (!startTimeSlot) throw new Error("Thieu Scheduler startTimeSlot");
+  }
 
   const response = await fetch(`${schedulerUrl}/api/extension/daily-results`, {
     method: "POST",
@@ -249,7 +261,15 @@ async function execute(tabId, func, args = []) {
 
 async function createDailyPost(tabId, item, options) {
   await navigateTab(tabId, DAILY_URL);
-  return execute(tabId, dailyCreatePostScript, [item, options]);
+  const result = await execute(tabId, dailyCreatePostScript, [item, options]);
+  if (typeof result === "string") {
+    return { dailyLink: result, cleanupImageUrls: [] };
+  }
+
+  return {
+    dailyLink: result?.dailyLink || "",
+    cleanupImageUrls: Array.isArray(result?.cleanupImageUrls) ? result.cleanupImageUrls : []
+  };
 }
 
 async function createFejiLink(item, dailyLink, domain) {
@@ -304,6 +324,101 @@ async function dailyCreatePostScript(item, options) {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+  const fileNameFromUrl = (url, fallback = "image.webp") => {
+    try {
+      const pathname = new URL(url).pathname;
+      const name = pathname.split("/").filter(Boolean).pop();
+      return name || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  const csrfToken = () =>
+    document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")
+      || document.querySelector('input[name="_token"]')?.value
+      || "";
+  const uploadImageUrlToDaily = async (imageUrl) => {
+    const imageResponse = await fetch(imageUrl, { credentials: "omit" });
+    if (!imageResponse.ok) {
+      throw new Error(`Khong tai duoc anh ${imageResponse.status}`);
+    }
+
+    const blob = await imageResponse.blob();
+    const contentType = blob.type || "image/webp";
+    if (!contentType.startsWith("image/")) {
+      throw new Error("URL khong phai file anh");
+    }
+
+    const token = csrfToken();
+    const presignResponse = await fetch("/backend/uploads/presigned-image-url", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        ...(token ? { "X-CSRF-TOKEN": token } : {})
+      },
+      body: JSON.stringify({
+        fileName: fileNameFromUrl(imageUrl),
+        contentType,
+        size: blob.size,
+        auditContext: null
+      })
+    });
+    const presignResult = await presignResponse.json().catch(() => null);
+    if (!presignResponse.ok || !presignResult?.data?.upload?.url || !presignResult?.data?.fileUrl) {
+      throw new Error(presignResult?.message || "Khong lay duoc Daily upload URL");
+    }
+
+    const upload = presignResult.data.upload;
+    const putResponse = await fetch(upload.url, {
+      method: upload.method || "PUT",
+      credentials: "omit",
+      headers: {
+        "Content-Type": contentType
+      },
+      body: blob
+    });
+    if (!putResponse.ok) {
+      throw new Error(`Upload anh Daily that bai ${putResponse.status}`);
+    }
+
+    return presignResult.data.fileUrl;
+  };
+  const replaceDescriptionImagesWithDailyUrls = async (html) => {
+    const uploadedUrls = new Map();
+    const container = document.createElement("div");
+    container.innerHTML = html || "";
+    const images = [...container.querySelectorAll("img[src]")];
+    const remoteImages = images.filter((image) => {
+      const src = image.getAttribute("src") || "";
+      return /^https?:\/\//i.test(src) && !src.includes("blog.igallery.blog/assets/");
+    });
+
+    for (const image of remoteImages) {
+      const src = image.getAttribute("src") || "";
+      if (uploadedUrls.has(src)) {
+        image.setAttribute("src", uploadedUrls.get(src));
+        continue;
+      }
+
+      const dailyUrl = await uploadImageUrlToDaily(src);
+      uploadedUrls.set(src, dailyUrl);
+      image.setAttribute("src", dailyUrl);
+    }
+
+    return {
+      html: container.innerHTML,
+      uploadedUrls
+    };
+  };
+  const getCleanupImageUrls = () => {
+    const thumbnailUrl = String(item.image || "").trim();
+    return [...uploadedDescriptionImageUrls.keys()].filter((url) =>
+      url && url !== thumbnailUrl && url.includes("/storage/v1/object/public/post-images/")
+    );
+  };
   const buildDescriptionHtml = () => {
     const description = String(item.description || "");
     const placement = options.imagePlacement || (options.prependImageToDescription ? "top" : "none");
@@ -330,13 +445,19 @@ async function dailyCreatePostScript(item, options) {
     paragraphs[insertAfterIndex].insertAdjacentHTML("afterend", imageHtml);
     return container.innerHTML;
   };
-  const descriptionHtml = buildDescriptionHtml();
+  let descriptionHtml = buildDescriptionHtml();
+  let uploadedDescriptionImageUrls = new Map();
   const existingUrls = new Set(
     [...document.querySelectorAll("button.copy-btn[data-url]")].map((button) => button.dataset.url)
   );
 
   try {
-    setValue('input[wire\\:model\\.defer="image"], input.image-url', item.image || "");
+    const uploadResult = await replaceDescriptionImagesWithDailyUrls(descriptionHtml);
+    descriptionHtml = uploadResult.html;
+    uploadedDescriptionImageUrls = uploadResult.uploadedUrls;
+
+    const dailyImageUrl = uploadedDescriptionImageUrls.get(item.image) || item.image || "";
+    setValue('input[wire\\:model\\.defer="image"], input.image-url', dailyImageUrl);
     if (!setValue("#title", item.title)) throw new Error("Không tìm thấy field title Daily");
     setValue("#slug", "");
     setValue("#seo_title", item.title);
@@ -386,13 +507,13 @@ async function dailyCreatePostScript(item, options) {
         const titleText = normalize(row.querySelector("td:nth-child(2)")?.textContent);
         const copy = row.querySelector("button.copy-btn[data-url]");
         if (copy?.dataset.url && !existingUrls.has(copy.dataset.url) && titleText.includes(normalize(item.title))) {
-          return { ok: true, value: copy.dataset.url };
+          return { ok: true, value: { dailyLink: copy.dataset.url, cleanupImageUrls: getCleanupImageUrls() } };
         }
       }
 
       const anyNewCopy = [...document.querySelectorAll("button.copy-btn[data-url]")].find((button) => !existingUrls.has(button.dataset.url));
       if (anyNewCopy?.dataset.url) {
-        return { ok: true, value: anyNewCopy.dataset.url };
+        return { ok: true, value: { dailyLink: anyNewCopy.dataset.url, cleanupImageUrls: getCleanupImageUrls() } };
       }
     }
 
@@ -419,10 +540,31 @@ function fejiFillAndSubmitScript(item, dailyLink, domain) {
     div.innerHTML = html || "";
     return div.textContent.trim().replace(/\s+/g, " ");
   };
+  const slugify = (value) => {
+    const maxLength = 60;
+    const slug = String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/^vt-+/, "");
+    const parts = slug.split("-").filter(Boolean);
+    let result = "";
+
+    for (const part of parts) {
+      const next = result ? `${result}-${part}` : part;
+      if (next.length > maxLength) break;
+      result = next;
+    }
+
+    return result || `link-${Date.now().toString(36)}`;
+  };
 
   try {
     setValue('input[name="title"]', item.title);
     setValue('input[name="link"]', dailyLink);
+    setValue('input[name="shorted_link__slug"]', slugify(item.title));
     setValue('input[name="shorted_link__image"]', item.image || "");
     setValue('input[name="shorted_link__title"]', item.title);
     setValue('input[name="shorted_link__description"]', stripHtml(item.description).slice(0, 240));
