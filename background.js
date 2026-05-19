@@ -542,6 +542,12 @@ function fejiFillAndSubmitScript(item, dailyLink, domain) {
   };
   const slugify = (value) => {
     const maxLength = 60;
+    const suffixLength = 6;
+    const suffixChars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const suffix = Array.from({ length: suffixLength }, () =>
+      suffixChars[Math.floor(Math.random() * suffixChars.length)]
+    ).join("");
+    const baseMaxLength = maxLength - suffixLength - 1;
     const slug = String(value || "")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -554,11 +560,11 @@ function fejiFillAndSubmitScript(item, dailyLink, domain) {
 
     for (const part of parts) {
       const next = result ? `${result}-${part}` : part;
-      if (next.length > maxLength) break;
+      if (next.length > baseMaxLength) break;
       result = next;
     }
 
-    return result || `link-${Date.now().toString(36)}`;
+    return `${result || "link"}-${suffix}`;
   };
 
   try {
