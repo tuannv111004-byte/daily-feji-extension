@@ -338,7 +338,13 @@ async function dailyCreatePostScript(item, options) {
       || document.querySelector('input[name="_token"]')?.value
       || "";
   const uploadImageUrlToDaily = async (imageUrl) => {
-    const imageResponse = await fetch(imageUrl, { credentials: "omit" });
+    let imageResponse;
+    try {
+      imageResponse = await fetch(imageUrl, { credentials: "omit" });
+    } catch (error) {
+      throw new Error(`Khong tai duoc anh: ${error.message}`);
+    }
+
     if (!imageResponse.ok) {
       throw new Error(`Khong tai duoc anh ${imageResponse.status}`);
     }
@@ -403,9 +409,13 @@ async function dailyCreatePostScript(item, options) {
         continue;
       }
 
-      const dailyUrl = await uploadImageUrlToDaily(src);
-      uploadedUrls.set(src, dailyUrl);
-      image.setAttribute("src", dailyUrl);
+      try {
+        const dailyUrl = await uploadImageUrlToDaily(src);
+        uploadedUrls.set(src, dailyUrl);
+        image.setAttribute("src", dailyUrl);
+      } catch {
+        // Keep the original URL when the page cannot fetch it, usually because of CORS.
+      }
     }
 
     return {
