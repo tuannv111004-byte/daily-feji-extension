@@ -9,8 +9,27 @@ function postAck(ok, error = "") {
   );
 }
 
+window.postMessage(
+  {
+    type: "POSTOPS_DAILY_FEJI_BRIDGE_READY",
+    version: chrome.runtime?.getManifest?.().version || ""
+  },
+  window.location.origin
+);
+
 window.addEventListener("message", (event) => {
   if (event.source !== window) return;
+  if (event.data?.type === "POSTOPS_DAILY_FEJI_PING") {
+    window.postMessage(
+      {
+        type: "POSTOPS_DAILY_FEJI_PONG",
+        version: chrome.runtime?.getManifest?.().version || ""
+      },
+      window.location.origin
+    );
+    return;
+  }
+
   if (event.data?.type !== "POSTOPS_START_DAILY_FEJI") return;
 
   if (typeof chrome === "undefined" || !chrome.runtime?.id) {
