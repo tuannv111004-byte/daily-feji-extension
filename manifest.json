@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Daily Feji Batch Helper",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Create Daily posts from JSON, create Feji short links, and export results.",
   "permissions": ["tabs", "scripting", "storage", "clipboardWrite"],
   "host_permissions": [

@@ -7,7 +7,7 @@ Chrome extension ho tro tao Daily post, tao Feji short link, va xuat ket qua.
 1. Mo Chrome va vao `chrome://extensions`.
 2. Bat `Developer mode`.
 3. Chon `Load unpacked`.
-4. Chon thu muc `C:\Tool\Extension`.
+4. Chon thu muc `C:\Tool\tools\FB-Scheduler\Extension`.
 
 ## Dung extension
 
