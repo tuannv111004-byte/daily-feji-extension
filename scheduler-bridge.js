@@ -9,10 +9,27 @@ function postAck(ok, error = "") {
   );
 }
 
+function getRuntime() {
+  try {
+    if (typeof chrome === "undefined" || !chrome.runtime?.id) return null;
+    return chrome.runtime;
+  } catch {
+    return null;
+  }
+}
+
+function getExtensionVersion() {
+  try {
+    return getRuntime()?.getManifest?.().version || "";
+  } catch {
+    return "";
+  }
+}
+
 window.postMessage(
   {
     type: "POSTOPS_DAILY_FEJI_BRIDGE_READY",
-    version: chrome.runtime?.getManifest?.().version || ""
+    version: getExtensionVersion()
   },
   window.location.origin
 );
@@ -23,7 +40,7 @@ window.addEventListener("message", (event) => {
     window.postMessage(
       {
         type: "POSTOPS_DAILY_FEJI_PONG",
-        version: chrome.runtime?.getManifest?.().version || ""
+        version: getExtensionVersion()
       },
       window.location.origin
     );
@@ -32,19 +49,20 @@ window.addEventListener("message", (event) => {
 
   if (event.data?.type !== "POSTOPS_START_DAILY_FEJI") return;
 
-  if (typeof chrome === "undefined" || !chrome.runtime?.id) {
+  const runtime = getRuntime();
+  if (!runtime) {
     postAck(false, "Extension runtime is not available. Reload the extension and this page.");
     return;
   }
 
   try {
-    chrome.runtime.sendMessage(
+    runtime.sendMessage(
       {
         type: "START_BATCH",
         payload: event.data.payload || {}
       },
       (response) => {
-        const runtimeError = chrome.runtime.lastError?.message || "";
+        const runtimeError = runtime.lastError?.message || "";
         if (runtimeError) {
           postAck(false, runtimeError);
           return;

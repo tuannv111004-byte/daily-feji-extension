@@ -59,6 +59,10 @@ Mapping khi gui sang FB Scheduler:
 - `shortLink` -> thay the adsLink cua post co san
 - `dailyLink` va `domain` -> notes
 
+Neu item co `schedulerPostId` tu Composer, extension se gui item do ve Scheduler ngay sau khi
+tao xong Daily + Feji link. Loi cua mot item se duoc ghi rieng tren item do va khong chan cac
+item tiep theo.
+
 API se tim cac post cua page tu `Start date` + `Start time slot` tro di. Neu slot bat dau
 khong co post thi lay post gan nhat tiep theo. Neu post da co adsLink thi van thay the bang
 shortLink moi. Extension khong tao post moi.

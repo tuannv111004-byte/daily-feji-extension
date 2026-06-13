@@ -1,4 +1,4 @@
-const DAILY_URL = "https://dailychronicle.cfx.bz/backend/posts";
+const DAILY_URL = "https://dailychronicle.cafex.biz/backend/posts";
 const FEJI_CREATE_URL = "https://s.feji.io/app/links/create";
 const FEJI_LIST_URL = "https://s.feji.io/app/links?page=1";
 const STATE_KEY = "dailyFejiState";
@@ -7,7 +7,9 @@ const DOMAIN_RULE = [
   "headlinebriefs.com",
   "greendailys.com",
   "greenwnbas.com",
-  "wnbatime.us"
+  "wnbatime.us",
+  "newlifes.org",
+  "musicscountry.com"
 ];
 
 let stopRequested = false;
@@ -46,7 +48,7 @@ async function runBatch(payload) {
 
   await setState({ status: "running", message: `Chuẩn bị chạy ${items.length} bài...`, results });
 
-  const dailyTab = await getOrCreateTab(DAILY_URL, "dailychronicle.cfx.bz");
+  const dailyTab = await getOrCreateTab(DAILY_URL, "https://dailychronicle.cafex.biz/backend/posts");
   await waitForTabComplete(dailyTab.id);
 
   for (let i = 0; i < items.length; i += 1) {
@@ -87,6 +89,9 @@ async function runBatch(payload) {
       row.shortLink = await createFejiLink(item, row.dailyLink, row.domain);
       row.status = "done";
 
+      if (scheduler?.enabled && row.schedulerPostId) {
+        await sendCompletedRowToScheduler(row, scheduler, results, i, items.length);
+      }
     } catch (error) {
       row.status = "error";
       row.error = error.message;
@@ -100,7 +105,7 @@ async function runBatch(payload) {
   }
 
   if (scheduler?.enabled) {
-    const doneRows = results.filter((row) => row.status === "done");
+    const doneRows = results.filter((row) => row.status === "done" && row.schedulerStatus !== "sent");
     if (doneRows.length > 0) {
       try {
         await setState({
@@ -110,10 +115,22 @@ async function runBatch(payload) {
         });
 
         const schedulerResult = await sendToScheduler(doneRows, scheduler);
+        const itemResults = Array.isArray(schedulerResult?.results) ? schedulerResult.results : [];
         const updatedPosts = schedulerResult?.posts || [];
 
         doneRows.forEach((row, index) => {
-          const updatedPost = updatedPosts[index];
+          const itemResult = itemResults[index];
+          const updatedPost = itemResult?.post || updatedPosts[index];
+          if (itemResult && itemResult.ok === false) {
+            row.schedulerStatus = "error";
+            row.schedulerError = itemResult.error || "Scheduler did not update this row.";
+            return;
+          }
+          if (!updatedPost) {
+            row.schedulerStatus = "error";
+            row.schedulerError = "Scheduler did not return an updated post for this row.";
+            return;
+          }
           row.schedulerStatus = "sent";
           row.schedulerPostId = updatedPost?.id || row.schedulerPostId || "";
           row.schedulerDate = updatedPost?.post_date || "";
@@ -141,6 +158,42 @@ async function runBatch(payload) {
     results
   });
   running = false;
+}
+
+async function sendCompletedRowToScheduler(row, scheduler, results, index, total) {
+  try {
+    row.schedulerStatus = "sending";
+    await setState({
+      status: "running",
+      message: `[${index + 1}/${total}] Gui Scheduler: ${row.title}`,
+      results
+    });
+
+    const schedulerResult = await sendToScheduler([row], scheduler);
+    const itemResult = Array.isArray(schedulerResult?.results) ? schedulerResult.results[0] : null;
+    const updatedPost = itemResult?.post || schedulerResult?.posts?.[0];
+    if (itemResult && itemResult.ok === false) {
+      throw new Error(itemResult.error || "Scheduler did not update this row.");
+    }
+    if (!updatedPost) {
+      throw new Error(schedulerResult?.errors?.[0] || "Scheduler did not return an updated post for this row.");
+    }
+
+    row.schedulerStatus = "sent";
+    row.schedulerPostId = updatedPost?.id || row.schedulerPostId || "";
+    row.schedulerDate = updatedPost?.post_date || "";
+    row.schedulerTimeSlot = updatedPost?.time_slot || "";
+    row.schedulerCaption = updatedPost?.caption || "";
+  } catch (error) {
+    row.schedulerStatus = "error";
+    row.schedulerError = error.message;
+  }
+
+  await setState({
+    status: "running",
+    message: `[${index + 1}/${total}] Scheduler ${row.schedulerStatus}: ${row.title}`,
+    results
+  });
 }
 
 async function setState(patch) {
@@ -196,8 +249,9 @@ async function sendToScheduler(rows, scheduler) {
 }
 
 function domainForNow(date = new Date()) {
-  const quarter = Math.min(3, Math.floor(date.getMinutes() / 15));
-  return DOMAIN_RULE[quarter];
+  const intervalMinutes = 60 / DOMAIN_RULE.length;
+  const domainIndex = Math.min(DOMAIN_RULE.length - 1, Math.floor(date.getMinutes() / intervalMinutes));
+  return DOMAIN_RULE[domainIndex];
 }
 
 async function getOrCreateTab(url, host) {
